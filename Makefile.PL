@@ -3,9 +3,9 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
 	NAME			=> 'CGI::Validate',
-	VERSION_FROM	=> 'Validate.pm', # finds $VERSION
+	VERSION_FROM	=> 'Validate.pm',
 	PREREQ_PM		=> {
-		CGI			=> 2.36,
+		CGI			=> 2.30,
 		Carp		=> 0,
 	},
 );

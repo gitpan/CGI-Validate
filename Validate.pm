@@ -6,21 +6,24 @@ CGI::Validate - Advanced CGI form parser and type validation
 
 =head1 SYNOPSIS
 
-  use CGI::Validate;
-  use CGI::Validate qw(:all);  # Normal use
-  use CGI::Validate qw(:subs);
-  use CGI::Validate qw(:vars);
+  use CGI::Validate;                # GetFormData() only
+  use CGI::Validate qw(:standard);  # Normal use
+  use CGI::Validate qw(:subs);      # Just functions
+  use CGI::Validate qw(:vars);      # Just exception vars
 
   ## If you don't want it to check that every requested
-  ## element arrived you can use this:
+  ## element arrived you can use this.  But I don't recommend it
+  ## for most users.
   $CGI::Validate::Complete = 0;
 
   ## If you don't care that some fields in the form don't
   ## actually match what you asked for. -I don't recommend
-  ## this unless you REALLY know what you're doing.
+  ## this unless you REALLY know what you're doing because this
+  ## normally meens you've got typo's in your HTML and we can't
+  ## catch them if you set this.
   ## $CGI::Validate::IgnoreNonMatchingFields = 1;
 
-  my $FieldOne    = 'Default';
+  my $FieldOne    = 'Default String';
   my $FieldTwo    = 8;
   my $FieldThree  = 'some default string';
   my @FieldFour   = ();  ## For multi-select field
@@ -53,6 +56,8 @@ CGI::Validate - Advanced CGI form parser and type validation
   ## If you only want to check the form data, but don't want to
   ## have CGI::Validate set anything use this. -You still have full
   ## access to the data via the normal B<CGI> object that is returned.
+
+  use CGI::Validate qw(CheckFormData); # not exported by default
   my $Query = CheckFormData (
     'FieldOne=s',   'FieldTwo=i',   'FieldThree',   'FieldFour',
     'FieldFive',    'Email',
@@ -60,6 +65,7 @@ CGI::Validate - Advanced CGI form parser and type validation
       ... Same exceptions available as GetFormData above ...
   };
 
+  ## Need some of your own validation code to be used?  Here is how you do it.
   addExtensions (
       myType   => sub { $_[0] =~ /test/ },
       fooBar   => \&fooBar,
@@ -79,7 +85,7 @@ CGI::Validate - Advanced CGI form parser and type validation
   );
 
 
-  ## Data type checks available are:
+  ## Builtin data type checks available are:
   s    string     # Any non-zero length value
   w    word       # Must have at least one \w char
   i    integer    # Integer value
@@ -102,13 +108,14 @@ require Exporter;
 @EXPORT		= qw(GetFormData);
 @EXPORT_OK	= qw(%Missing %Invalid %Blank %InvalidType addExtensions GetFormData CheckFormData);
 %EXPORT_TAGS = (
-	all		=> [ @EXPORT_OK ],
-	vars	=> [ qw(%Missing %Invalid %Blank %InvalidType) ],
-	subs	=> [ qw(addExtensions GetFormData CheckFormData) ],
+	standard	=> [ @EXPORT_OK ],
+	all			=> [ @EXPORT_OK ], # depreciated
+	vars		=> [ qw(%Missing %Invalid %Blank %InvalidType) ],
+	subs		=> [ qw(addExtensions GetFormData CheckFormData) ],
 );
-($VERSION)	= '$Revision: 1.11 $' =~ /\$Revision:\s+([^\s]+)/;
+$VERSION = do { my @r = (q$Revision: 2.0 $ =~ /\d+/g); sprintf '%d.%03d'.'%02d' x ($#r-1), @r};
 
-use CGI;
+use CGI 2.30;
 use Carp;
 
 ## User settable globals
@@ -141,15 +148,19 @@ sub GetFormData {
 
 	## Damn CGI changed it's frigging interface... :-(
 	my $query		= new CGI;
-	foreach my $name ($query->param) {
-		$form{$name} = $query->param ($name);
-	}
+	%form			= %{ $query };
+
+## Use this code below if the CGI object form gets changed.  Yes, we're breaking OO rules, so kill me I need the speed!
+#	foreach my $name ($query->param) {
+#		$form{$name} = [ $query->param ($name) ];
+#	}
 
 	%Missing		= ();	## We use these to do our $Complete testing
  	%Invalid		= ();	## Fields they didn't ask for
 	%Blank			= ();	## Fields left blank, that have a required modifier
 	%InvalidType	= ();	## Fields with data not matching there type defs
 
+	## Program's validation spec part
 	## Load %fields, and add :s type to fields that don't contain one
 	for (my $arg=0; $arg <= $#_; $arg += 2) {
 		## Split field in to name, if it's optional, and it's required type
@@ -187,8 +198,9 @@ sub GetFormData {
 	 	}
 	}
 
+	## Form's data
 	## Check all form fields for type et al...
-	foreach my $field (keys %form) {
+	foreach my $field ($query->param) {
 		## Did we get a bad field from the form?
 		unless (exists $fields{$field}) {
 			## Do we care?
@@ -199,16 +211,16 @@ sub GetFormData {
 			next;
 		}
 
-		my @values = $query->param ($field);
+		# my @values = $query->param ($field);
 
-		unless (scalar @values or $fields{$field}{optional}) {
+		unless (scalar @{ $form{$field} } or $fields{$field}{optional}) {
 			$Blank{$field} = qq(Required field "$field" contains no data);
 			next;
 		}
 
 		## Type checking
 		my $argNum = 0;
-		foreach my $arg (@values) {
+		foreach my $arg (@{ $form{$field} }) {
 			$argNum++;
 
 			## Hmm, is the field empty?
@@ -217,7 +229,7 @@ sub GetFormData {
 				## Since $arg is aliased from @values, the sub can modify the
 				## actual data if it wants to (filter type check).
 				unless ( $fields{$field}{type}[1]->($arg) ) {
-					if (scalar @values > 1) {
+					if (scalar @{ $form{$field} } > 1) {
 						$InvalidType{$field} = qq(Invalid data type found for array field $field, indices $argNum ($fields{$field}{type}[0] expected, found "$arg"));
 					} else {
 						$InvalidType{$field} = qq(Invalid data type found for field $field ($fields{$field}{type}[0] expected, found "$arg"));
@@ -226,7 +238,7 @@ sub GetFormData {
 			} else {
 				unless ($fields{$field}{optional}) {
 					## Hmm, blank field in multi-select?  Odd if that's the case
-					if (scalar @values > 1) {
+					if (scalar @{ $form{$field} } > 1) {
 						$Blank{$field} = qq(Required field "$field" contains no data in $argNum segment);
 					} else {
 						$Blank{$field} = qq(Required field "$field" contains no data);
@@ -235,9 +247,9 @@ sub GetFormData {
 			}
 		}
 		if (ref $fields{$field}{reference} eq 'ARRAY') {
-			@{ $fields{$field}{reference} } = @values;
+			@{ $fields{$field}{reference} } = @{ $form{$field} };
 		} else {
-			${ $fields{$field}{reference} } = $values[0];
+			${ $fields{$field}{reference} } = $form{$field}->[0];
 		}
 	}
 
@@ -253,6 +265,8 @@ sub GetFormData {
 		return $query;
 	}
 }
+
+## Default type handlers
 
 sub CheckString {
 	my $value	= shift;
@@ -288,15 +302,6 @@ sub CheckEmail {
 	## Must look like a "standard" email address.  White space
 	## is permitted on the ends though.
 	return 1 if ($value =~ m/^\s*<?[^@<>]+@[^@.<>]+(?:\.[^@.<>]+)+>?\s*$/);
-#	return 1 if ($value =~ /
-#		\s*			# Ignore leading whitespace
-#		[\w\-.]+	# Username -Some word string
-#		\@			# I'm not explaining this one
-#		[\w\-]+		# Host and or domain name
-#		\.			# dot
-#		[\w\-.]+	# domain or subdomain and high level domain
-#		\s*$		# Ignore trailing whitespace
-#	/x);
 }
 
 sub CheckFormData {
@@ -319,10 +324,10 @@ modules.  The B<CGI> module is great for parsing, building, and rebuilding forms
 lacks any real error checking abilitys such as misspelled form input names, the data types
 received from them, missing values, etc.  This however, is something that the B<Getopt::Long>
 module is vary good at doing.  So, basicly this module is a layer that collects the data
-using the B<CGI> module and passes it to routines derived from the B<Getopt::Long> module
-to do type validation and name consistency checks.
+using the B<CGI> module and passes it to routines to do type validation and name consistency
+checks all in one clean try/catch style block.
 
-The syntax of GetFormData() is the same as the GetOptions() of B<Getopt::Long>, with a
+The syntax of GetFormData() is mostly the same as the GetOptions() of B<Getopt::Long>, with a
 few exceptions (namely, the handling of exceptions) .  See the B<VALUE TYPES> section
 for detail of the available types, and the B<EXCEPTIONS> section for exception handling
 options.  If given without a type, fields are assumed to be type ":s" (optional string),
@@ -342,7 +347,7 @@ Just like in B<Getopt::Long>, the ":" prefix meens that the value is optional, b
 still much match the type that is defined if it is given.  The "=" prefix meens that the
 value is required for this field, and of course much match the type given.  If you just
 want to make sure that some value is there but don't care about the type, use the required
-string type "=s".
+string type "=s", or required word type "=w".
 
 =over 4
 
@@ -354,7 +359,7 @@ this checks to see if the value length is greater then 0.
 =item w
 
 Word type.  Value must contain at least one \w char to be valid. 
-Similar to a B<s> (string) type, but normally more useful.
+Similar to a B<s> (string) type, but oftin more useful.
 
 =item i
 
@@ -362,18 +367,19 @@ Integer type.
 
 =item f
 
-Float type.  Data must be in '1.2' or '12' format.
+Real number (float) type.  Data must be in '1.2' or '12' format.
 
 =item e
 
 Email type.  Must look like a valid email address.  White space on either end (but
 not in the middle) is permitted.
 
-The regex used currently is m/\s*^<?[^@<>]+@[^@.<>]+(\.[^@.<>]+)+>?\s*$/
+  The regex used currently is m/\s*^<?[^@<>]+@[^@.<>]+(\.[^@.<>]+)+>?\s*$/.
 
 =item xTYPE
 
-User defined type.  See the B<EXTENSIONS> section below.
+User defined type.  See the B<EXTENSIONS> section below.  This is where you get to make up
+your own tests for this module to use.
 
 =back
 
@@ -382,7 +388,8 @@ User defined type.  See the B<EXTENSIONS> section below.
 Exceptions are handled by returning undef, and setting one or more of five different package
 global variables.  Think of them first as exception objects if you must. -They aren't, but
 they kinda act like it, kinda...  We must use this method until B<Perl> ever gets a real
-exception system (eval/die doesn't quite cut it here).
+exception system (eval/die doesn't quite cut it here because we need more information and with
+a cleaner way to access it).
 
 The exceptions are:
 
@@ -390,30 +397,30 @@ The exceptions are:
 
 =item B<%Missing>
 
-All fields we were asked to check for, but the form didn't send us at all.  This
+Contains all field names we were asked to check for, but the form didn't send us at all.  This
 is not the same as a field that did get sent but had no data.  Oftin this is
 from GetFormData() being given a misspelled field name, or the form being sent in
 an odd manor such as an alternate 'submit' button, or just hitting the enter key
 while in the last (probably only) field.
 
-Probably code bug generated exception.
+Probably code bug generated exception.  Check for typos.
 
 =item B<%Invalid>
 
 All fields that were B<not> asked to be checked for, but the form sent them along anyway.
 Most likely these are misspelled field names in the HTML form page.
 
-Probably code bug generated exception.
+Probably code bug generated exception.  Check for typos.
 
 =item B<%Blank>
 
 All valid fields that were sent with no value AND the type given was set to '=' to
 require the field to be filled in.  The user probably just didn't fill in the field(s) at
-all.  It's not bad practice to make all required fields in form with the word '(required)'
+all.  It's not a bad practice to make all required fields in form with the word '(required)'
 next to them.  Some users will try many times to fill in a form with as little information
 as they can, as lame as such practice really is.
 
-Probably a lazy user error generated exception.
+Probably a lazy user error generated exception.  Kick the lazy user.
 
 =item B<%InvalidType>.
 
@@ -421,7 +428,7 @@ The type passed did not match the type asked for.  Such as the value 'foo' being
 as the value for a field that was marked as being an integer, or 'I hate spam'
 being sent as the value for an email field.
 
-Probably a user error generated exception.
+Probably a user error generated exception.  Kick the lazy user.
 
 =item B<$CGI::Validate::Error>
 
@@ -430,13 +437,16 @@ B<long messages> are added here.  If any usage errors are found, they are added 
 the moon shifts off it's orbit, it's added here.  Use this if you just want to do a simple
 one shot test like:
 
-  GetFormData (%fields) or die "Parse error: $CGI::Validate::Error";
+  GetFormData (foo => \$foo) or die "Parse error: $CGI::Validate::Error";
 
 Think of it as my version of B<$@> if I were to throw "real" exceptions. :-)
 
+This is also used for internal (non-data) error reporting, such as not giving me a valid reference
+type to dump the data into, an unbalanced validation list, etc.
+
 =back
 
-The first four hash exceptions have the same format.  The keys are all the fields that had
+The four hash exceptions have the same format.  The keys are all the fields that had
 that kind of exception, and the values are much longer error messages that give further
 details that can be useful for debugging.  Generally however, if you need such detail it's
 much easier to just use the B<$CGI::Validate::Error> bucket that contains all of the error
@@ -449,7 +459,9 @@ takes a hash of extension names and code refs to use.  All extension names will 
 have an 'x' prepended to them, so that myType would be B<x>myType.  Validation code is
 expected to return true for valid types, and false/undef for invalid.  Validation code is
 passed a single value of the form value.  This value is an alias to the real data
-variable so "filters" can be implemented as well.  Examples:
+variable so "filters" can be implemented as well that actually change the data.  Some examples
+for a Social Security Number checker, and an amount checker that looks for a number or the
+string "max" doing a conversion of "max" to it's own max amount constant:
 
   my $MAX_AMOUNT = 100;
 
@@ -498,6 +510,15 @@ perl(1), CGI(3), mod_perl(1)
 =head1 HISTORY
 
  $Log: Validate.pm,v $
+ Revision 2.0  1998/05/28 10:24:58  byron
+ 	-Version handling code.
+ 	-Export symbol names.
+ 	-How we handle the CGI object data.  Towit, we do some direct internal access for speed
+ 	 reasons.  Yes, I'm walking into CGI.pm's house without asking, so shoot me.  CGI.pm's
+ 	 data access methods are so needlessly slow it isn't even funny, but to change them
+ 	 would break the "documented" interface.  If this proves to be a problem later, I'll probably
+ 	 just bypass CGI.pm alltogether and do it myself.
+
  Revision 1.11  1998/05/23 11:16:54  byron
  	-Changed CheckEmail regexp
  	-Better docs

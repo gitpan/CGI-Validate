@@ -1,4 +1,13 @@
      $Log: Validate.pm,v $
+     Revision 2.0  1998/05/28 10:24:58  byron
+            -Version handling code.
+            -Export symbol names.
+            -How we handle the CGI object data.  Towit, we do some direct internal access for speed
+             reasons.  Yes, I'm walking into CGI.pm's house without asking, so shoot me.  CGI.pm's
+             data access methods are so needlessly slow it isn't even funny, but to change them
+             would break the "documented" interface.  If this proves to be a problem later, I'll probably
+             just bypass CGI.pm alltogether and do it myself.
+
      Revision 1.11  1998/05/23 11:16:54  byron
             -Changed CheckEmail regexp
             -Better docs

@@ -9,7 +9,10 @@
 BEGIN { $ok = 0; $| = 1; $total = 30; print "1..$total\n"; }
 END {print "not ok 1\n" unless $ok;}
 use CGI::Validate qw(:all);
-printf '%-20s', 'load';
+
+print "Testing CGI::Validate " . CGI::Validate->VERSION . "\n";
+my $printf = '%-22s';
+printf $printf, 'load';
 print "ok 1\n"; $ok++;
 
 @ARGV = qw(
@@ -70,14 +73,14 @@ my $Query = GetFormData (
 	'MissingOne=s'		=> \$Values{MissingOne},
 );
 
-printf '%-20s', 'base';
+printf $printf, 'base';
 if ($query) {
 	print "not ok 2\n";
 } else {
 	print "ok 2\n"; $ok++;
 }
 
-printf '%-20s', 'invalid field one';
+printf $printf, 'invalid field one';
 if ($Invalid{InvalidField1}) {
 	print "ok 3\n"; $ok++
 } else {
@@ -85,7 +88,7 @@ if ($Invalid{InvalidField1}) {
 }
 delete $Invalid{InvalidField1};
 
-printf '%-20s', 'invalid field two';
+printf $printf, 'invalid field two';
 if ($Invalid{InvalidField2}) {
 	print "ok 4\n"; $ok++;
 } else {
@@ -93,7 +96,7 @@ if ($Invalid{InvalidField2}) {
 }
 delete $Invalid{InvalidField2};
 
-printf '%-20s', 'blank email';
+printf $printf, 'blank email';
 if ($Blank{EmailBlank}) {
 	print "ok 5\n"; $ok++;
 } else {
@@ -101,7 +104,7 @@ if ($Blank{EmailBlank}) {
 }
 delete $Blank{EmailBlank};
 
-printf '%-20s', 'blank word';
+printf $printf, 'blank word';
 if ($Blank{WordBlank}) {
 	print "ok 6\n"; $ok++;
 } else {
@@ -109,7 +112,7 @@ if ($Blank{WordBlank}) {
 }
 delete $Blank{WordBlank};
 
-printf '%-20s', 'blank float';
+printf $printf, 'blank float';
 if ($Blank{FloatBlank}) {
 	print "ok 7\n"; $ok++;
 } else {
@@ -117,7 +120,7 @@ if ($Blank{FloatBlank}) {
 }
 delete $Blank{FloatBlank};
 
-printf '%-20s', 'blank integer';
+printf $printf, 'blank integer';
 if ($Blank{IntegerBlank}) {
 	print "ok 8\n"; $ok++;
 } else {
@@ -125,7 +128,7 @@ if ($Blank{IntegerBlank}) {
 }
 delete $Blank{IntegerBlank};
 
-printf '%-20s', 'blank extension';
+printf $printf, 'blank extension';
 if ($Blank{ExtensionOneBlank}) {
 	print "ok 9\n"; $ok++;
 } else {
@@ -133,7 +136,7 @@ if ($Blank{ExtensionOneBlank}) {
 }
 delete $Blank{ExtensionOneBlank};
 
-printf '%-20s', 'blank string';
+printf $printf, 'blank string';
 if ($Blank{StringBlank}) {
 	print "ok 10\n"; $ok++;
 } else {
@@ -141,14 +144,14 @@ if ($Blank{StringBlank}) {
 }
 delete $Blank{StringBlank};
 
-printf '%-20s', 'invalid blanks';
+printf $printf, 'invalid blanks';
 unless (%Blank) {
 	print "ok 11\n"; $ok++;
 } else {
 	print "not ok 11\n";
 }
 
-printf '%-20s', 'invalid word';
+printf $printf, 'invalid word';
 if ($InvalidType{WordInvalid}) {
 	print "ok 12\n"; $ok++;
 } else {
@@ -156,7 +159,7 @@ if ($InvalidType{WordInvalid}) {
 }
 delete $InvalidType{WordInvalid};
 
-printf '%-20s', 'invalid extension';
+printf $printf, 'invalid extension';
 if ($InvalidType{ExtensionOneInvalid}) {
 	print "ok 13\n"; $ok++;
 } else {
@@ -164,7 +167,7 @@ if ($InvalidType{ExtensionOneInvalid}) {
 }
 delete $InvalidType{ExtensionOneInvalid};
 
-printf '%-20s', 'invalid float one';
+printf $printf, 'invalid float one';
 if ($InvalidType{FloatInvalid1}) {
 	print "ok 14\n"; $ok++;
 } else {
@@ -172,7 +175,7 @@ if ($InvalidType{FloatInvalid1}) {
 }
 delete $InvalidType{FloatInvalid1};
 
-printf '%-20s', 'invalid integer one';
+printf $printf, 'invalid integer one';
 if ($InvalidType{IntegerInvalid1}) {
 	print "ok 15\n"; $ok++;
 } else {
@@ -180,7 +183,7 @@ if ($InvalidType{IntegerInvalid1}) {
 }
 delete $InvalidType{IntegerInvalid1};
 
-printf '%-20s', 'invalid email';
+printf $printf, 'invalid email';
 if ($InvalidType{EmailInvalid}) {
 	print "ok 16\n"; $ok++;
 } else {
@@ -188,7 +191,7 @@ if ($InvalidType{EmailInvalid}) {
 }
 delete $InvalidType{EmailInvalid};
 
-printf '%-20s', 'invalid float two';
+printf $printf, 'invalid float two';
 if ($InvalidType{FloatInvalid2}) {
 	print "ok 17\n"; $ok++;
 } else {
@@ -196,7 +199,7 @@ if ($InvalidType{FloatInvalid2}) {
 }
 delete $InvalidType{FloatInvalid2};
 
-printf '%-20s', 'invalid integer two';
+printf $printf, 'invalid integer two';
 if ($InvalidType{IntegerInvalid2}) {
 	print "ok 18\n"; $ok++;
 } else {
@@ -204,21 +207,21 @@ if ($InvalidType{IntegerInvalid2}) {
 }
 delete $InvalidType{IntegerInvalid2};
 
-printf '%-20s', 'invalid invalid-type';
+printf $printf, 'invalid invalid-type';
 unless (%InvalidType) {
 	print "ok 19\n"; $ok++;
 } else {
 	print "not ok 19\n";
 }
 
-printf '%-20s', 'invalid invalids';
+printf $printf, 'invalid invalids';
 unless (%Invalid) {
 	print "ok 20\n"; $ok++;
 } else {
 	print "not ok 20\n";
 }
 
-printf '%-20s', 'missing one';
+printf $printf, 'missing one';
 if ($Missing{MissingOne}) {
 	print "ok 21\n"; $ok++;
 } else {
@@ -226,63 +229,63 @@ if ($Missing{MissingOne}) {
 }
 delete $Missing{MissingOne};
 
-printf '%-20s', 'invalid missing';
+printf $printf, 'invalid missing';
 unless (%Missing) {
 	print "ok 22\n"; $ok++;
 } else {
 	print "not ok 22\n";
 }
 
-printf '%-20s', 'valid string';
+printf $printf, 'valid string';
 if ($Values{StringValid} eq 'ValidString') {
 	print "ok 23\n"; $ok++;
 } else {
 	print "not ok 23\n";
 }
 
-printf '%-20s', 'valid word';
+printf $printf, 'valid word';
 if ($Values{WordValid} eq 'ValidWord') {
 	print "ok 24\n"; $ok++;
 } else {
 	print "not ok 24\n";
 }
 
-printf '%-20s', 'valid integer';
+printf $printf, 'valid integer';
 if ($Values{IntegerValid} == 123) {
 	print "ok 25\n"; $ok++;
 } else {
 	print "not ok 25\n";
 }
 
-printf '%-20s', 'valid float';
+printf $printf, 'valid float';
 if ($Values{FloatValid} == 12.3) {
 	print "ok 26\n"; $ok++;
 } else {
 	print "not ok 26\n";
 }
 
-printf '%-20s', 'valid email';
+printf $printf, 'valid email';
 if ($Values{EmailValid} eq 'foo@bar.com') {
 	print "ok 27\n"; $ok++;
 } else {
 	print "not ok 27\n";
 }
 
-printf '%-20s', 'valid extension';
+printf $printf, 'valid extension';
 if ($Values{ExtensionOneValid} eq 'foo:bar') {
 	print "ok 28\n"; $ok++;
 } else {
 	print "not ok 28\n";
 }
 
-printf '%-20s', 'modified extension';
+printf $printf, 'modified extension';
 if ($Values{ExtensionTwoValid} eq 'TEST') {
 	print "ok 29\n"; $ok++;
 } else {
 	print "not ok 29\n";
 }
 
-printf '%-20s', 'multiple select';
+printf $printf, 'multiple select';
 if (scalar @{ $Values{MultipleString} } == 4) {
 	print "ok 30\n"; $ok++;
 } else {
@@ -291,7 +294,9 @@ if (scalar @{ $Values{MultipleString} } == 4) {
 
 if ($ok != $total) {
 	$failed = $total - $ok;
-	die "Failed $failed out of $total tests\n";
+	$CGI::Validate::Error =~ s/^/\t/gm;
+	die "Failed $failed out of $total tests:\n$CGI::Validate::Error\n";
 } else {
 	print "Passed all $total tests\n";
 }
+
