@@ -100,9 +100,9 @@ require Exporter;
 	vars	=> [ qw(%Missing %Invalid %Blank %InvalidType) ],
 	subs	=> [ qw(addExtensions GetFormData CheckFormData) ],
 );
-($VERSION)	= '$Revision: 1.9 $' =~ /\$Revision:\s+([^\s]+)/;
+($VERSION)	= '$Revision: 1.10 $' =~ /\$Revision:\s+([^\s]+)/;
 
-use CGI qw(ReadParse);
+use CGI;
 use Carp;
 
 ## User settable globals
@@ -132,7 +132,12 @@ sub addExtensions {
 sub GetFormData {
 	my %fields		= ();	## We load this latter from @_
 	my %form		= ();	## What the form actually gave us
-	my $query		= ReadParse \%form;
+
+	## Damn CGI changed it's frigging interface... :-(
+	my $query		= new CGI;
+	foreach my $name ($query->param) {
+		$form{$name} = $query->param ($name);
+	}
 
 	%Missing		= ();	## We use these to do our $Complete testing
  	%Invalid		= ();	## Fields they didn't ask for
@@ -458,6 +463,9 @@ perl(1), CGI(3), mod_perl(1)
 =head1 HISTORY
 
  $Log: Validate.pm,v $
+ Revision 1.10  1998/05/13 21:37:22  byron
+ 	-Fixed bug from changes in the CGI module interface.
+
  Revision 1.9  1998/05/11 13:16:48  byron
  	-Added thankyous
 

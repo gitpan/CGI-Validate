@@ -1,6 +1,6 @@
      Basic perl module install:
-            gunzip -c CGI-Validate-1.9.tar.gz | tar -xvf -
-            cd CGI-Validate-1.9
+            gunzip -c CGI-Validate-1.10.tar.gz | tar -xvf -
+            cd CGI-Validate-1.10
             perl Makefile.pl
             make
             make test

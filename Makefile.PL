@@ -5,7 +5,7 @@ WriteMakefile(
 	NAME			=> 'CGI::Validate',
 	VERSION_FROM	=> 'Validate.pm', # finds $VERSION
 	PREREQ_PM		=> {
-		CGI			=> 0,
+		CGI			=> 2.36,
 		Carp		=> 0,
 	},
 );
