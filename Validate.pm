@@ -63,10 +63,19 @@ CGI::Validate - Advanced CGI form parser and type validation
   addExtensions (
       myType   => sub { $_[0] =~ /test/ },
       fooBar   => \&fooBar,
+      i_modify_the_actual_data => sub {
+          if ($_[0] =~ /test/) {   ## data validation
+              $_[0] = 'whatever';  ## modify the data by alias
+              return 1;
+          } else {
+              return 0;
+          }
+     },
   );
   my $Query = GetFormData (
       'foo=xmyType'    => \$foo,
       'bar=xfooBar'    => \$bar,
+      'cat=xi_modify_the_actual_data' => \$cat,
   );
 
 
@@ -75,10 +84,7 @@ CGI::Validate - Advanced CGI form parser and type validation
   w    word       # Must have at least one \w char
   i    integer    # Integer value
   f    float      # Float value
-  e    email      # Must match /\s*[\w\-.]+\@[\w\-]+\.[\w\-.]+\s*$/
-                  # Yes, this is a pretty lame check.  Feel free to send me better
-                  # code; I'm to lazy to research it fully myself. -Or could it be
-                  # I just don't care enough about checking email addresses? :-)
+  e    email      # Must match m/^\s*<?[^@<>]+@[^@.<>]+(?:\.[^@.<>]+)+>?\s*$/
   x    extension  # User extension type.  See EXTENSIONS below.
 
 
@@ -100,7 +106,7 @@ require Exporter;
 	vars	=> [ qw(%Missing %Invalid %Blank %InvalidType) ],
 	subs	=> [ qw(addExtensions GetFormData CheckFormData) ],
 );
-($VERSION)	= '$Revision: 1.10 $' =~ /\$Revision:\s+([^\s]+)/;
+($VERSION)	= '$Revision: 1.11 $' =~ /\$Revision:\s+([^\s]+)/;
 
 use CGI;
 use Carp;
@@ -116,7 +122,7 @@ my %TYPES = (
 	'i'	=> [ 'integer',	\&CheckInt		],
 	'f' => [ 'float',	\&CheckFloat	],
 	'e' => [ 'email',	\&CheckEmail	],
-	'x'	=> [ 'extension',	sub { confess q(PANIC: Can't Happen[tm]: Sorry, but type 'x' is not supported in raw form) } ],
+	'x'	=> [ 'extension',	sub { confess q(PANIC: Can't Happen[tm]: Sorry, but type 'x' is not supported in raw form.  See EXTENSIONS in perldoc ) . __FILE__ . '. ' } ],
 );
 
 sub addExtensions {
@@ -131,7 +137,7 @@ sub addExtensions {
 
 sub GetFormData {
 	my %fields		= ();	## We load this latter from @_
-	my %form		= ();	## What the form actually gave us
+	my %form		= ();	## Values from the form actually gave us
 
 	## Damn CGI changed it's frigging interface... :-(
 	my $query		= new CGI;
@@ -155,7 +161,8 @@ sub GetFormData {
 		## Optional argument, or required?  Default optional
 		$optional = $optional eq '=' ? 0 : 1;
 
-		$type ||= 's';
+		$type ||= 's';  ## Default optional string
+
 		$TYPES{$type}
 			or ($Error = qq(Invalid type "$type" given for field "$field"), return);
 		$type = $TYPES{$type};
@@ -203,20 +210,27 @@ sub GetFormData {
 		my $argNum = 0;
 		foreach my $arg (@values) {
 			$argNum++;
-			## Check the data to make sure it's the right type.
-			unless ( $fields{$field}{type}[1]->($arg) ) {
-				## Hmm, is the field empty?
-				unless (length $arg > 0) {
-					unless ($fields{$field}{optional}) {
-						## Hmm, blank field in multi-select?  Odd if that's the case
-						if (scalar @values > 1) {
-							$Blank{$field} = qq(Required field "$field" contains no data in $argNum segment);
-						} else {
-							$Blank{$field} = qq(Required field "$field" contains no data);
-						}
+
+			## Hmm, is the field empty?
+			if (length $arg > 0) {
+				## Check the data to make sure it's the right type.
+				## Since $arg is aliased from @values, the sub can modify the
+				## actual data if it wants to (filter type check).
+				unless ( $fields{$field}{type}[1]->($arg) ) {
+					if (scalar @values > 1) {
+						$InvalidType{$field} = qq(Invalid data type found for array field $field, indices $argNum ($fields{$field}{type}[0] expected, found "$arg"));
+					} else {
+						$InvalidType{$field} = qq(Invalid data type found for field $field ($fields{$field}{type}[0] expected, found "$arg"));
 					}
-				} else {
-					$InvalidType{$field} = qq(Invalid data type found for array field $field ($fields{$field}{type}[0] expected, found "$arg"));
+				}
+			} else {
+				unless ($fields{$field}{optional}) {
+					## Hmm, blank field in multi-select?  Odd if that's the case
+					if (scalar @values > 1) {
+						$Blank{$field} = qq(Required field "$field" contains no data in $argNum segment);
+					} else {
+						$Blank{$field} = qq(Required field "$field" contains no data);
+					}
 				}
 			}
 		}
@@ -273,15 +287,16 @@ sub CheckEmail {
 	my $value	= shift;
 	## Must look like a "standard" email address.  White space
 	## is permitted on the ends though.
-	return 1 if ($value =~ /
-		\s*			# Ignore leading whitespace
-		[\w\-.]+	# Username -Some word string
-		\@			# I'm not explaining this one
-		[\w\-]+		# Host and or domain name
-		\.			# dot
-		[\w\-.]+	# domain or subdomain and high level domain
-		\s*$		# Ignore trailing whitespace
-	/x);
+	return 1 if ($value =~ m/^\s*<?[^@<>]+@[^@.<>]+(?:\.[^@.<>]+)+>?\s*$/);
+#	return 1 if ($value =~ /
+#		\s*			# Ignore leading whitespace
+#		[\w\-.]+	# Username -Some word string
+#		\@			# I'm not explaining this one
+#		[\w\-]+		# Host and or domain name
+#		\.			# dot
+#		[\w\-.]+	# domain or subdomain and high level domain
+#		\s*$		# Ignore trailing whitespace
+#	/x);
 }
 
 sub CheckFormData {
@@ -353,6 +368,8 @@ Float type.  Data must be in '1.2' or '12' format.
 
 Email type.  Must look like a valid email address.  White space on either end (but
 not in the middle) is permitted.
+
+The regex used currently is m/\s*^<?[^@<>]+@[^@.<>]+(\.[^@.<>]+)+>?\s*$/
 
 =item xTYPE
 
@@ -430,15 +447,33 @@ messages from all of the exceptions in one place.
 User validation types can be defined using the addExtensions() function.  addExtensions()
 takes a hash of extension names and code refs to use.  All extension names will automatically
 have an 'x' prepended to them, so that myType would be B<x>myType.  Validation code is
-expected to return true for valid types, and false for invalid.  Validation code is
-passed a single argument of the form value.  Example:
+expected to return true for valid types, and false/undef for invalid.  Validation code is
+passed a single value of the form value.  This value is an alias to the real data
+variable so "filters" can be implemented as well.  Examples:
+
+  my $MAX_AMOUNT = 100;
 
   addExtensions (
       SSNumber  => sub { $_[0] =~ /^\d{9}$/ },  # SSN must be 9 digit number
+      Amount    => sub {
+          if ($_[0] =~ /max/i) {
+              $_[0] = $MAX_AMOUNT;  # modify value to be max amount
+              return 1;
+          } elsif (($_[0] =~ /^\d+$/) {
+              return 1;
+          } else {
+              return 0;
+          }
+      },
   );
   GetFormData (
       'ssn=xSSNumber'   => \$ssn,
+      'amount=xAmount'  => \$amount,
   );
+
+As such, if the field "amount" were to contain the string "max", it would be auto-converted
+to the value of the constant $MAX_AMOUNT (100) before being assigned to $amount so that
+no further data changes or checks are needed.
 
 All normal exception variables apply.
 
@@ -450,11 +485,11 @@ global config values ($CGI::Validate::Complete and $CGI::Validate::IgnoreNonMatc
 however, even if you use the "default" values.  This is because as globals they will
 be recycled on the next use under B<mod_perl>.
 
-Email address can never be fully tested (see the Perl FAQ for reasons why).  The regexp
-I use is also pretty lame.  This is mainly do to the fact that I don't use it myself, and
-don't have much reason to research better methods/checks.  If you've got a nice algorithm
-I can use, feel free to send it to me.  But do remember that in the end, B<there is no way
-verify an email address>.
+Email address can never be fully tested (see the Perl FAQ for reasons why).
+The regexp I use is also pretty lame, although I use a better one in
+version 1.11+.	This is mainly do to the fact that I don't use it myself,
+and don't have much reason to research better methods/checks.  If you need more extensive
+testing, feel free to add an extension via addExtension().
 
 =head1 SEE ALSO
 
@@ -463,6 +498,11 @@ perl(1), CGI(3), mod_perl(1)
 =head1 HISTORY
 
  $Log: Validate.pm,v $
+ Revision 1.11  1998/05/23 11:16:54  byron
+ 	-Changed CheckEmail regexp
+ 	-Better docs
+ 	-Probably something else...
+
  Revision 1.10  1998/05/13 21:37:22  byron
  	-Fixed bug from changes in the CGI module interface.
 
@@ -503,7 +543,8 @@ Zenin <zenin@archive.rhps.org>
 
 aka Byron Brummer <byron@omix.com>
 
-With input from Earl Hood <ehood@geneva.acs.uci.edu>, and Lloyd Zusman <ljz@asfast.com>.
+With input from Earl Hood <ehood@geneva.acs.uci.edu>, and Lloyd Zusman <ljz@asfast.com>,
+and the email regex from Elijah <http://www.qz.to/~eli/>.
 
 =head1 COPYRIGHT
 

@@ -1,4 +1,9 @@
      $Log: Validate.pm,v $
+     Revision 1.11  1998/05/23 11:16:54  byron
+            -Changed CheckEmail regexp
+            -Better docs
+            -Probably something else...
+
      Revision 1.10  1998/05/13 21:37:22  byron
             -Fixed bug from changes in the CGI module interface.
 

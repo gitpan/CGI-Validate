@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $ok = 0; $| = 1; $total = 29; print "1..$total\n"; }
+BEGIN { $ok = 0; $| = 1; $total = 30; print "1..$total\n"; }
 END {print "not ok 1\n" unless $ok;}
 use CGI::Validate qw(:all);
 printf '%-20s', 'load';
@@ -23,13 +23,22 @@ print "ok 1\n"; $ok++;
 	EmailBlank=
 	ExtensionOneValid=foo:bar	ExtensionOneInvalid=foobar
 	ExtensionOneBlank=
+	ExtensionTwoValid=foo:bar
 	InvalidField1=foo		InvalidField2=
 	MultipleString=foo		MultipleString=bar
 	MultipleString=cat		MultipleString=dog
 );
 
 addExtensions (
-	ExtensionOne	=> sub { shift =~ /:/ }
+	ExtensionOne	=> sub {shift =~ /:/ },
+	ExtensionTwo	=> sub {
+		if ($_[0] =~ /:/) {
+			$_[0] = 'TEST';
+			return 1;
+		} else {
+			return 0;
+		}
+	},
 );
 
 my %Values = ();
@@ -56,6 +65,7 @@ my $Query = GetFormData (
 	'ExtensionOneValid=xExtensionOne'	=> \$Values{ExtensionOneValid},
 	'ExtensionOneInvalid=xExtensionOne'	=> \$Values{ExtensionOneInvalid},
 	'ExtensionOneBlank=xExtensionOne'	=> \$Values{ExtensionOneBlank},
+	'ExtensionTwoValid=xExtensionTwo'	=> \$Values{ExtensionTwoValid},
 	'MultipleString=s'	=> $Values{MultipleString},
 	'MissingOne=s'		=> \$Values{MissingOne},
 );
@@ -265,11 +275,18 @@ if ($Values{ExtensionOneValid} eq 'foo:bar') {
 	print "not ok 28\n";
 }
 
-printf '%-20s', 'multiple select';
-if (scalar @{ $Values{MultipleString} } == 4) {
+printf '%-20s', 'modified extension';
+if ($Values{ExtensionTwoValid} eq 'TEST') {
 	print "ok 29\n"; $ok++;
 } else {
 	print "not ok 29\n";
+}
+
+printf '%-20s', 'multiple select';
+if (scalar @{ $Values{MultipleString} } == 4) {
+	print "ok 30\n"; $ok++;
+} else {
+	print "not ok 30\n";
 }
 
 if ($ok != $total) {
